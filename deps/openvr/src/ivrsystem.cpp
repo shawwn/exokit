@@ -4,11 +4,218 @@
 #include <array>
 #include <node.h>
 #include <openvr.h>
+#include <defines.h>
+
+template <typename T> struct V8TypedArrayTraits; // no generic case
+template<> struct V8TypedArrayTraits<Float32Array> { typedef float value_type; };
+template<> struct V8TypedArrayTraits<Float64Array> { typedef double value_type; };
+// etc. v8 doesn't export anything to make this nice.
+
+template <typename T>
+Local<T> createTypedArray(size_t size) {
+  size_t byteLength = size * sizeof(typename V8TypedArrayTraits<T>::value_type);
+  Local<ArrayBuffer> buffer = ArrayBuffer::New(Isolate::GetCurrent(), byteLength);
+  Local<T> result = T::New(buffer, 0, size);
+  return result;
+};
 
 using namespace v8;
 
 using TrackedDevicePoseArray = std::array<vr::TrackedDevicePose_t, vr::k_unMaxTrackedDeviceCount>;
 using TrackedDeviceIndexArray = std::array<vr::TrackedDeviceIndex_t, vr::k_unMaxTrackedDeviceCount>;
+
+
+/*
+class IVRTrackedDevicePose : public Nan::ObjectWrap {
+public:
+  static Handle<Object> Initialize(Isolate *isolate);
+
+protected:
+  static NAN_METHOD(New);
+  static NAN_GETTER(DeviceToAbsoluteTrackingGetter);
+  static NAN_GETTER(VelocityGetter);
+  static NAN_GETTER(AngularVelocityGetter);
+  static NAN_GETTER(TrackingResultGetter);
+  static NAN_GETTER(PoseIsValidGetter);
+  static NAN_GETTER(DeviceIsConnectedGetter);
+
+  IVRTrackedDevicePose(const vr::TrackedDevicePose_t& pose)
+    : pose(pose)
+  {
+  }
+  
+  virtual ~IVRTrackedDevicePose() {
+  }
+
+private:
+  vr::TrackedDevicePose_t pose;
+  Nan::Persistent<Float32Array> dataArray;
+};
+*/
+
+Handle<Object>
+IVRTrackedDevicePose::Initialize(Isolate *isolate) {
+  Nan::EscapableHandleScope scope;
+
+  // constructor
+  Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(New);
+  ctor->InstanceTemplate()->SetInternalFieldCount(1);
+  ctor->SetClassName(JS_STR("TrackedDevicePose"));
+
+  // prototype
+  Local<ObjectTemplate> proto = ctor->PrototypeTemplate();
+
+  Nan::SetMethod(proto,"get", Get);
+  /*
+  Nan::SetMethod(proto,"scale", Scale);
+  Nan::SetMethod(proto,"rotate", Rotate);
+  Nan::SetMethod(proto,"translate", Translate);
+  Nan::SetMethod(proto,"transform", Transform);
+  Nan::SetMethod(proto,"setTransform", SetTransform);
+  Nan::SetMethod(proto,"resetTransform", ResetTransform);
+  Nan::SetMethod(proto,"measureText", MeasureText);
+  Nan::SetMethod(proto,"beginPath", BeginPath);
+  Nan::SetMethod(proto,"closePath", ClosePath);
+  Nan::SetMethod(proto,"clip", Clip);
+  Nan::SetMethod(proto,"stroke", Stroke);
+  Nan::SetMethod(proto,"fill", Fill);
+  Nan::SetMethod(proto,"moveTo", MoveTo);
+  Nan::SetMethod(proto,"lineTo", LineTo);
+  Nan::SetMethod(proto,"arc", Arc);
+  Nan::SetMethod(proto,"arcTo", ArcTo);
+  Nan::SetMethod(proto,"bezierCurveTo", BezierCurveTo);
+  Nan::SetMethod(proto,"rect", Rect);
+  Nan::SetMethod(proto,"fillRect", FillRect);
+  Nan::SetMethod(proto,"strokeRect", StrokeRect);
+  Nan::SetMethod(proto,"clearRect", ClearRect);
+  Nan::SetMethod(proto,"fillText", FillText);
+  Nan::SetMethod(proto,"strokeText", StrokeText);
+  Nan::SetMethod(proto,"createLinearGradient", CreateLinearGradient);
+  Nan::SetMethod(proto,"createRadialGradient", CreateRadialGradient);
+  Nan::SetMethod(proto,"createPattern", CreatePattern);
+  Nan::SetMethod(proto,"resize", Resize);
+  Nan::SetMethod(proto,"drawImage", DrawImage);
+  Nan::SetMethod(proto,"save", Save);
+  Nan::SetMethod(proto,"restore", Restore);
+  Nan::SetMethod(proto,"createImageData", CreateImageData);
+  Nan::SetMethod(proto,"getImageData", GetImageData);
+  Nan::SetMethod(proto,"putImageData", PutImageData);
+  */
+
+  Local<Function> ctorFn = ctor->GetFunction();
+  /*
+  ctorFn->Set(JS_STR("ImageData"), imageDataCons);
+  ctorFn->Set(JS_STR("CanvasGradient"), canvasGradientCons);
+  ctorFn->Set(JS_STR("CanvasPattern"), canvasPatternCons);
+  */
+
+  return scope.Escape(ctorFn);
+}
+
+//=============================================================================
+IVRTrackedDevicePose::IVRTrackedDevicePose(/*const vr::TrackedDevicePose_t& self*/)
+//: self_(self)
+{
+  // Do nothing.
+}
+
+//=============================================================================
+IVRTrackedDevicePose::~IVRTrackedDevicePose()
+{
+}
+
+//=============================================================================
+NAN_METHOD(IVRTrackedDevicePose::New)
+{
+  if (!info.IsConstructCall())
+  {
+    Nan::ThrowError("Use the `new` keyword when creating a new instance.");
+    return;
+  }
+
+  /*
+  if (info.Length() != 1 || !info[0]->IsExternal())
+  {
+    Nan::ThrowTypeError("Argument[0] must be an `IVRSystem*`.");
+    return;
+  }
+
+  auto wrapped_instance = static_cast<vr::IVRSystem*>(
+    Local<External>::Cast(info[0])->Value());
+  IVRSystem *obj = new IVRSystem(wrapped_instance);
+  obj->Wrap(info.This());
+  */
+  IVRTrackedDevicePose *obj = new IVRTrackedDevicePose();
+  obj->Wrap(info.This());
+  info.GetReturnValue().Set(info.This());
+}
+
+//=============================================================================
+NAN_METHOD(IVRTrackedDevicePose::Get)
+{
+  IVRTrackedDevicePose* obj = ObjectWrap::Unwrap<IVRTrackedDevicePose>(info.Holder());
+
+  if (info.Length() < 1)
+  {
+    Nan::ThrowError("Wrong number of arguments.");
+    return;
+  }
+
+  //Local<Float32Array> float32Array = Local<Float32Array>::Cast(info[1]);
+  //info.GetReturnValue().Set(float32Array);
+  if (info[0]->IsString()) {
+    std::string name(*Nan::Utf8String(info[0]));
+    if (name == "DeviceToAbsoluteTracking") {
+      if (obj->m34Array.IsEmpty()) {
+        obj->m34Array.Reset(createTypedArray<Float32Array>(16));
+      }
+      Local<Float32Array> float32Array(Nan::New(obj->m34Array));
+      info.GetReturnValue().Set(float32Array);
+
+        const vr::HmdMatrix34_t &matrix = obj->self_.mDeviceToAbsoluteTracking;
+
+        for (unsigned int v = 0; v < 4; v++) {
+          for (unsigned int u = 0; u < 3; u++) {
+            float32Array->Set(v * 4 + u, Number::New(Isolate::GetCurrent(), matrix.m[u][v]));
+          }
+        }
+        float32Array->Set(0 * 4 + 3, Number::New(Isolate::GetCurrent(), 0));
+        float32Array->Set(1 * 4 + 3, Number::New(Isolate::GetCurrent(), 0));
+        float32Array->Set(2 * 4 + 3, Number::New(Isolate::GetCurrent(), 0));
+        float32Array->Set(3 * 4 + 3, Number::New(Isolate::GetCurrent(), 1));
+    }
+    else if (name == "velocity") {
+      if (obj->v3Array.IsEmpty()) {
+        obj->v3Array.Reset(createTypedArray<Float32Array>(3));
+      }
+      Local<Float32Array> float32Array(Nan::New(obj->v3Array));
+      info.GetReturnValue().Set(float32Array);
+
+        const vr::HmdVector3_t &vector = obj->self_.vVelocity;
+        for (unsigned int u = 0; u < 3; u++) {
+          float32Array->Set(u, Number::New(Isolate::GetCurrent(), vector.v[u]));
+        }
+    }
+    else if (name == "angularVelocity") {
+      if (obj->v3Array.IsEmpty()) {
+        obj->v3Array.Reset(createTypedArray<Float32Array>(3));
+      }
+      Local<Float32Array> float32Array(Nan::New(obj->v3Array));
+      info.GetReturnValue().Set(float32Array);
+        const vr::HmdVector3_t &vector = obj->self_.vAngularVelocity;
+        for (unsigned int u = 0; u < 3; u++) {
+          float32Array->Set(u, Number::New(Isolate::GetCurrent(), vector.v[u]));
+        }
+    }
+    else {
+      Nan::ThrowTypeError("Unknown attribute name");
+      return;
+    }
+  } else {
+    Nan::ThrowTypeError("Specify an attribute name");
+    return;
+  }
+}
 
 //=============================================================================
 NAN_MODULE_INIT(IVRSystem::Init)
@@ -48,6 +255,7 @@ NAN_MODULE_INIT(IVRSystem::Init)
 
   Nan::SetPrototypeMethod(tpl, "GetTrackedDeviceClass", GetTrackedDeviceClass);
   Nan::SetPrototypeMethod(tpl, "GetControllerState", GetControllerState);
+  Nan::SetPrototypeMethod(tpl, "PollNextEvent", PollNextEvent);
 
   /// virtual bool IsTrackedDeviceConnected( vr::TrackedDeviceIndex_t unDeviceIndex ) = 0;
   /// virtual bool GetBoolTrackedDeviceProperty( vr::TrackedDeviceIndex_t unDeviceIndex, ETrackedDeviceProperty prop, ETrackedPropertyError *pError = 0L ) = 0;
@@ -806,6 +1014,39 @@ NAN_METHOD(IVRSystem::GetControllerState)
         }
       }
     }
+  }
+}
+
+NAN_METHOD(IVRSystem::PollNextEvent)
+{
+  IVRSystem* obj = ObjectWrap::Unwrap<IVRSystem>(info.Holder());
+
+
+  IVRTrackedDevicePose* pose = NULL;
+  if (info.Length() > 0)
+  {
+    pose = ObjectWrap::Unwrap<IVRTrackedDevicePose>(Local<Object>::Cast(info[0]));
+  }
+
+  vr::VREvent_t event;
+  vr::TrackedDevicePose_t pose1;
+  if (obj->self_->PollNextEventWithPose(vr::ETrackingUniverseOrigin::TrackingUniverseStanding,
+        &event, sizeof(vr::VREvent_t), pose ? &pose->self_ : &pose1)) {
+    Local<Object> result = Nan::New<Object>();
+    {
+      Local<String> age_prop = Nan::New<String>("eventAgeSeconds").ToLocalChecked();
+      Nan::Set(result, age_prop, Nan::New<Number>(event.eventAgeSeconds));
+
+      Local<String> idx_prop = Nan::New<String>("trackedDeviceIndex").ToLocalChecked();
+      Nan::Set(result, idx_prop, Nan::New<Number>(event.trackedDeviceIndex));
+
+      const char* eventName = obj->self_->GetEventTypeNameFromEnum(static_cast<vr::EVREventType>(event.eventType));
+      if (eventName) {
+        Local<String> evt_prop = Nan::New<String>("eventType").ToLocalChecked();
+        Nan::Set(result, evt_prop, Nan::New<String>(eventName).ToLocalChecked());
+      }
+    }
+    info.GetReturnValue().Set(result);
   }
 }
 

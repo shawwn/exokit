@@ -200,5 +200,8 @@ Local<Object> makeVr() {
   exports->Set(Nan::New("VR_GetInitToken").ToLocalChecked(), Nan::New<v8::FunctionTemplate>(VR_GetInitToken)->GetFunction());
   exports->Set(Nan::New("getContext").ToLocalChecked(), Nan::New<v8::FunctionTemplate>(GetContext)->GetFunction());
 
+  Local<Value> trackedDevicePoseCons = IVRTrackedDevicePose::Initialize(Isolate::GetCurrent());
+  exports->Set(JS_STR("TrackedDevicePose"), trackedDevicePoseCons);
+
   return scope.Escape(exports);
 }

@@ -9,7 +9,42 @@
 namespace vr
 {
 class IVRSystem;
+//struct TrackedDevicePose_t;
 }
+
+#include <openvr.h>
+
+using namespace v8;
+
+class IVRTrackedDevicePose : public Nan::ObjectWrap {
+public:
+  static Handle<Object> Initialize(Isolate *isolate);
+
+protected:
+  static NAN_METHOD(New);
+  static NAN_METHOD(Get);
+  /*
+  static NAN_METHOD(GetDeviceToAbsoluteTracking);
+  static NAN_GETTER(VelocityGetter);
+  static NAN_GETTER(AngularVelocityGetter);
+  static NAN_GETTER(TrackingResultGetter);
+  static NAN_GETTER(PoseIsValidGetter);
+  static NAN_GETTER(DeviceIsConnectedGetter);
+  */
+
+  //IVRTrackedDevicePose(const vr::TrackedDevicePose_t& pose);
+  IVRTrackedDevicePose();
+  virtual ~IVRTrackedDevicePose();
+
+private:
+  Nan::Persistent<Float32Array> m34Array;
+  Nan::Persistent<Float32Array> v3Array;
+
+  /// Reference to wrapped OpenVR pose.
+  vr::TrackedDevicePose_t self_;
+
+  friend class IVRSystem;
+};
 
 class IVRSystem : public Nan::ObjectWrap
 {
@@ -84,6 +119,9 @@ private:
   /// virtual ETrackedDeviceClass GetTrackedDeviceClass( vr::TrackedDeviceIndex_t unDeviceIndex ) = 0;
   static NAN_METHOD(GetTrackedDeviceClass);
   static NAN_METHOD(GetControllerState);
+  static NAN_METHOD(GetControllerStateWithPose);
+  static NAN_METHOD(PollNextEvent);
+  static NAN_METHOD(PollNextEventWithPose);
 
   /// virtual bool IsTrackedDeviceConnected( vr::TrackedDeviceIndex_t unDeviceIndex ) = 0;
   /// virtual bool GetBoolTrackedDeviceProperty( vr::TrackedDeviceIndex_t unDeviceIndex, ETrackedDeviceProperty prop, ETrackedPropertyError *pError = 0L ) = 0;
