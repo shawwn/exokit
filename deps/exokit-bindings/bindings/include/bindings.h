@@ -14,6 +14,8 @@
 #include <webgl.h>
 #include <AudioContext.h>
 #include <Video.h>
+#include <VideoCapture.h>
+#include <VideoMediaStream.h>
 #if _WIN32
 #include <leapmotion.h>
 #endif

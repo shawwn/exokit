@@ -16,7 +16,7 @@ const {version} = require('./package.json');
 const emojis = require('./assets/emojis');
 const nativeBindingsModulePath = path.join(__dirname, 'native-bindings.js');
 const {THREE} = core;
-const nativeBindings = require(nativeBindingsModulePath);
+const nativeBindings = global.nativeBindings = require(nativeBindingsModulePath);
 const {nativeVideo, nativeVr, nativeLm, nativeMl, nativeWindow} = nativeBindings;
 
 const dataPath = path.join(os.homedir() || __dirname, '.exokit');
@@ -186,7 +186,7 @@ const _normalizeMatrixArray = float32Array => {
   }
 };
 
-const vrPresentState = {
+const vrPresentState = global.vrPresentState = {
   vrContext: null,
   isPresenting: false,
   system: null,
@@ -316,7 +316,7 @@ let isMlPresenting = false;
 let mlFbo = null;
 let mlTex = null;
 let mlGlContext = null;
-if (nativeMl) {
+if (nativeMl && false) {
   mlContext = new nativeMl();
   nativeMl.requestPresent = function(layers) {
     if (!isMlPresenting) {
