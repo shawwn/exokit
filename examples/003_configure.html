@@ -2,6 +2,7 @@
   <body>
 
 		<video id="video" autoplay style="display:none"></video>
+		<video id="video2" autoplay style="display:none"></video>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/93/three.js"></script>
   <script src="https://cdn.rawgit.com/mrdoob/three.js/r93/examples/js/loaders/OBJLoader.js"></script>
   <script>
@@ -9,30 +10,106 @@
 
       var defaultQuad = new THREE.PlaneBufferGeometry(2,2,1,1);
 
-      var defaultVertexShader = [
+      var defaultVertexShader = `
+varying vec2 vUv;
+void main(){
+  vUv = uv;
+  gl_Position = vec4(position.xy, 1., 1.);
+}
+`;
+      var defaultFragmentShader =`
 
-        "varying vec2 vUv;",
-        "void main(){",
-          "vUv = uv;",
-          "gl_Position = vec4(position.xy, 1., 1.);",
-        "}",
+varying vec2 vUv;
+uniform float numTextures;
+uniform sampler2D uTexture;
+uniform sampler2D uTexture2;
 
-      ].join("\n");
+/*the follwing three functions convert RGB into YCbCr in the same manner as in JPEG images*/
 
-      var defaultFragmentShader = [
+float rgb2y( vec3 color )
+{
+  float r = color.r;
+  float g = color.g;
+  float b = color.b;
+	/*a utility function to convert colors in RGB into YCbCr*/
+	float y;
+	y = ( 0.299*r + 0.587*g + 0.114*b );
+	return ( y );
+}
 
-        `varying vec2 vUv;
-        uniform float numTextures;
-        uniform sampler2D uTexture;
-        void main() {
-          gl_FragColor = texture2D(uTexture, vUv);
-        }`
+float rgb2cb( float r, float g, float b )
+{
+	/*a utility function to convert colors in RGB into YCbCr*/
+	float cb;
+	cb = ( 0.5 + -0.168736*r - 0.331264*g + 0.5*b );
+	return ( cb );
+}
 
-      ].join("\n");
+float rgb2cr( float r, float g, float b )
+{
+	/*a utility function to convert colors in RGB into YCbCr*/
+	float cr;
+	cr = ( 0.5 + 0.5*r - 0.418688*g - 0.081312*b );
+	return ( cr );
+}
 
+float colorclose( float Cb_p, float Cr_p, float Cb_key, float Cr_key, float tola, float tolb )
+{
+	/*decides if a color is close to the specified hue*/
+	float temp = sqrt( ( Cb_key - Cb_p )*( Cb_key - Cb_p ) + ( Cr_key - Cr_p )*( Cr_key - Cr_p ) );
+	if ( temp < tola ) { return ( 0.0 ); }
+	if ( temp < tolb ) { return ( ( temp - tola ) / ( tolb - tola ) ); }
+	return ( 1.0 );
+}
+
+vec4 chromakey( vec3 fg, vec3 bg, vec3 key, float tola, float tolb ) {
+  float r_key = key.r;
+  float g_key = key.g;
+  float b_key = key.b;
+  float cb_key = rgb2cb( key.r, key.g, key.b );
+  float cr_key = rgb2cr( key.r, key.g, key.b );
+  float r = fg.r;
+  float g = fg.g;
+  float b = fg.b;
+  float r_bg = bg.r;
+  float g_bg = bg.g;
+  float b_bg = bg.b;
+  float cb = rgb2cb( r, g, b );
+  float cr = rgb2cr( r, g, b );
+  float mask = colorclose( cb, cr, cb_key, cr_key, tola, tolb );
+  mask = 1.0 - mask;
+  mask = max( min( mask, 1.0 ), 0.0 );
+  r = min( max( r - mask * r_key, 0.0 ) + mask * r_bg, 1.0);
+  g = min( max( g - mask * g_key, 0.0 ) + mask * g_bg, 1.0);
+  b = min( max( b - mask * b_key, 0.0 ) + mask * b_bg, 1.0);
+  return vec4( r, g, b, mask );
+}
+
+void main() {
+  gl_FragColor = chromakey(
+    texture2D(uTexture, vUv).rgb,
+    texture2D(uTexture2, vUv).rgb,
+    vec3(42.0/255.0, 112.0/255.0, 95.0/255.0),
+    0.0,
+    40.0/255.0 );
+  /*
+  vec4 color = texture2D(uTexture2, vUv);
+  //float y = rgb2y(color.rgb);
+  //if (y < 190.0/255.0) {
+    //y = 0.0;
+  //}
+  //gl_FragColor = vec4(y,y,y,1.0);
+  gl_FragColor = color;
+  */
+
+}
+
+
+`;
       function ScreenQuad( params ){
 
         params = params || {};
+        this.params = params;
 
         THREE.Mesh.apply( this, [ defaultQuad , new THREE.ShaderMaterial({
 
@@ -44,6 +121,10 @@
             uTexture: {
               type:'t',
               value: undefined !== params.texture ? params.texture : null
+            },
+            uTexture2: {
+              type:'t',
+              value: undefined !== params.texture2 ? params.texture2 : null
             },
           },
 
@@ -68,6 +149,24 @@
       ScreenQuad.prototype = Object.create( THREE.Mesh.prototype );
 
       ScreenQuad.constructor = ScreenQuad;
+      ScreenQuad.prototype.analyze = function () {
+        //const img = getImageData(this.params.texture2);
+        const img = this.params.texture2.image;
+        if (img && false) {
+          const w = img.width;
+          const h = img.height;
+          const d = img.data;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              //console.log(d[3*x], d[3*x+1], d[3*x+2]);
+              if (x > w) {
+                return;
+              }
+            }
+          }
+          //console.log(getImageData(this.params.texture).data.length);
+        }
+      }
 
       return ScreenQuad
 
@@ -75,7 +174,10 @@
   </script>
   <script>
 
-      let camera, matrixWorld, projectionMatrix, scene, renderer, video, controllerMeshes, lastPresseds, points, presenting;
+      let camera, matrixWorld, projectionMatrix, scene, renderer, video, video2, controllerMeshes, lastPresseds, points, presenting;
+
+      const facingMode = 'environment';
+      const facingMode2 = facingMode === 'environment' ? 'user' : 'environment';
 
 			init();
 
@@ -83,7 +185,7 @@
 
         scene = new THREE.Scene();
 
-				camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 300);
+				camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.001, 300);
         camera.position.z = 1;
         scene.add(camera);
         camera.updateMatrixWorld();
@@ -93,14 +195,21 @@
         projectionMatrix = camera.projectionMatrix.clone();
 
 				video = document.getElementById('video');
+				video2 = document.getElementById('video2');
 				const texture = new THREE.VideoTexture(video);
+				const texture2 = new THREE.VideoTexture(video2);
 				texture.minFilter = THREE.LinearFilter;
 				texture.magFilter = THREE.LinearFilter;
 				texture.format = THREE.RGBFormat;
+				texture2.minFilter = THREE.LinearFilter;
+				texture2.magFilter = THREE.LinearFilter;
+				texture2.format = THREE.RGBFormat;
 
         const screenQuad = new ScreenQuad({
           texture,
+          texture2,
         });
+        window.screenQuad = screenQuad;
         scene.add(screenQuad);
 
         const ambientLight = new THREE.AmbientLight(0x808080);
@@ -110,17 +219,34 @@
         directionalLight.position.set(1, 1, 1);
         scene.add(directionalLight);
 
-        points = [];
+        points = []
         controllerMeshes = [];
         const controllerMeshLoader = new THREE.OBJLoader();
         controllerMeshLoader.setPath('https://cdn.rawgit.com/mrdoob/three.js/r93/examples/models/obj/vive-controller/');
         controllerMeshLoader.load('vr_controller_vive_1_5.obj', object => {
           const textureLoader = new THREE.TextureLoader();
-          textureLoader.setPath('vive-controller/');
+          textureLoader.setPath('https://cdn.rawgit.com/mrdoob/three.js/r93/examples/models/obj/vive-controller/');
 
           const controllerMesh = object.children[0];
           controllerMesh.material.map = textureLoader.load('onepointfive_texture.png');
           controllerMesh.material.specularMap = textureLoader.load('onepointfive_spec.png');
+
+
+          var powerPos = new THREE.Mesh(
+            new THREE.BoxGeometry(0.001, 0.001, 0.001),
+            new THREE.MeshBasicMaterial({color:0x00FF00})
+          );
+
+          powerPos.position.set(0.000000, 0.002927, 0.096331);
+          object.add(powerPos);
+
+
+
+          /*
+          const powerPos = new THREE.Object3D();
+          powerPos.position.set(0.000000, 0.002927, 0.096331);
+          controllerMesh.add(powerPos);
+          */
 
           controllerMeshes.push(object.clone());
           controllerMeshes.push(object.clone());
@@ -132,11 +258,26 @@
           scene.add(controllerMeshes[3]);
         });
 
+
+        if (localStorage.getItem(`exokit.configure.points.${facingMode}`)) {
+          for (const p of JSON.parse(localStorage.getItem(`exokit.configure.points.${facingMode}`))) {
+            points.push(new THREE.Vector3(p.x,p.y,p.z));
+            if (points.length >= 5) {
+              break;
+            }
+          }
+
+          if (points.length >= 5) {
+            points.init = true;
+          } else {
+            points.length = 1;
+          }
+        }
+
         lastPresseds = [
-          false,
-          false,
+          [],
+          [],
         ];
-        points = [];
         presenting = false;
 
 				renderer = new THREE.WebGLRenderer({
@@ -154,14 +295,23 @@
 
 				if ( navigator.mediaDevices && navigator.mediaDevices.getUserMedia ) {
 
-					var constraints = { video: { width: 1280, height: 720, facingMode: 'user' } };
+					var constraints = { video: { width: 1280, height: 720, facingMode: facingMode } };
+					var constraints2 = { video: { width: 1280, height: 720, facingMode: facingMode2 } };
 
 					navigator.mediaDevices.getUserMedia( constraints ).then( function( stream ) {
+            navigator.mediaDevices.getUserMedia( constraints2 ).then( function( stream2 ) {
 
 							// apply the stream to the video element used in the texture
 
 							video.src = window.URL.createObjectURL( stream );
 							video.play();
+							video2.src = window.URL.createObjectURL( stream2 );
+							video2.play();
+            } ).catch( function( error ) {
+
+              console.error( 'Unable to access the camera/webcam.', error );
+
+            } );
 
 					} ).catch( function( error ) {
 
@@ -187,6 +337,26 @@
 				 renderer.setSize( window.innerWidth, window.innerHeight );
 
 			 }
+
+function getImageData( texture ) {
+  if (!texture.image) {
+    return;
+  }
+
+    if (!texture.canvasContext) {
+      //console.log('here');
+      //console.dir(texture.image);
+      var canvas = document.createElement( 'canvas' );
+      canvas.width = texture.image.width;
+      canvas.height = texture.image.height;
+      texture.canvas = canvas;
+      texture.canvasContext = texture.canvas.getContext( '2d' );
+    }
+
+    texture.canvasContext.drawImage( texture.image, 0, 0 );
+
+    return texture.canvasContext.getImageData( 0, 0, texture.image.width, texture.image.height );
+}
 
        function onActivate() {
          const localVector = new THREE.Vector3();
@@ -254,6 +424,9 @@
 			 function animate() {
 
          if (presenting) {
+           window.screenQuad.analyze();
+
+
            const gamepads = navigator.getGamepads();
            for (let i = 0; i < 2; i++) {
              const gamepad = gamepads[i];
@@ -262,36 +435,143 @@
              if (gamepad) {
                controllerMesh.position.fromArray(gamepad.pose.position);
                controllerMesh.quaternion.fromArray(gamepad.pose.orientation);
+               controllerMesh.updateMatrixWorld();
              }
 
              const lastPressed = lastPresseds[i];
-             const pressed = Boolean(gamepad && gamepad.buttons[1].pressed);
-             if (!lastPressed && pressed) {
+             const pressed = Boolean(gamepad && gamepad.buttons[2].pressed);
+             const cleared = Boolean(gamepad && gamepad.buttons[0].pressed);
+             if (!lastPressed[0] && cleared) {
+               if (points.length <= 0) {
+                 points.length = 0;
+               } else {
+                 points.length = points.length - 1;
+               }
+               console.log("Point undo. Now " + points.length + " points");
+             } else if (!lastPressed[2] && pressed || points.init) {
                if (gamepad) {
                  for (let j = 0; j < gamepad.hapticActuators.length; j++) {
                    gamepad.hapticActuators[j].pulse(1, 100);
                  }
                }
 
-               points.push(controllerMesh.position.clone());
-               console.log(`point ${points.length}: ${JSON.stringify(points[points.length - 1])}`);
+               if (!points.init) {
+                 const child = controllerMesh.children[controllerMesh.children.length-1];
+                 const p = new THREE.Vector3();
+                 p.setFromMatrixPosition( child.matrixWorld );
+                 points.push(p);
+                 console.log(`point ${points.length}: ${JSON.stringify(points[points.length - 1])}`);
+               }
 
+
+               const _configureCamera = (camera, points) => {
+                 const [P, X0Y1, X0Y0, X1Y0, X1Y1] = points;
+
+                 const PX0Y1 = X0Y1.clone().sub(P).normalize();
+                 const PX1Y1 = X1Y1.clone().sub(P).normalize();
+                 const PX0Y0 = X0Y0.clone().sub(P).normalize();
+                 const PX1Y0 = X1Y0.clone().sub(P).normalize();
+                 const PMid = PX0Y0.clone().add(PX1Y1).add(PX0Y1).add(PX1Y0).divideScalar(4);
+
+                 const QZ = new THREE.Quaternion(); QZ.setFromUnitVectors(
+                   new THREE.Vector3(0, 0, -1),
+                   PMid.clone().normalize()
+                 );
+
+                 const QX = new THREE.Quaternion(); QX.setFromUnitVectors(
+                   new THREE.Vector3(1, 0, 0),
+                   PX1Y0.clone().sub(PX0Y0).normalize()
+                 );
+
+                 const QY = new THREE.Quaternion(); QY.setFromUnitVectors(
+                   new THREE.Vector3(0, 1, 0),
+                   PX0Y1.clone().sub(PX0Y0).normalize()
+                 );
+
+                 const X = new THREE.Vector3(1, 0,  0); X.applyQuaternion(QX); // camera right
+                 const Y = new THREE.Vector3(0, 1,  0); Y.applyQuaternion(QY); // camera up
+                 const Z = new THREE.Vector3(0, 0, -1); Z.applyQuaternion(QZ); // camera forward
+
+                 const PA = PX0Y1.clone().sub(PMid);
+                 const PB = PX1Y0.clone().sub(PMid);
+
+                 const XdotPA = X.dot(PA);
+                 const XdotPB = X.dot(PB);
+                 const YdotPA = Y.dot(PA);
+                 const YdotPB = Y.dot(PB);
+                 const ZdotPA = Z.dot(PA);
+                 const ZdotPB = Z.dot(PB);
+
+                 let aspect = video.width / video.height;
+
+                 const PMidBot = PX0Y0.clone().add(PX1Y0).divideScalar(2);
+                 const PMidTop = PX0Y1.clone().add(PX1Y1).divideScalar(2);
+                 /*
+                 let fov = Math.acos(
+                   Math.abs(Y.dot(PB)) / Z.dot(PB)
+                 ) * 90 / Math.PI;
+                 */
+
+                 let fov = Math.acos(
+                   PMidBot.clone().normalize().dot(
+                     PMidTop.clone().normalize())) * 180 / Math.PI;
+                 let aspectYA = (Y.dot(PA) / Z.dot(PA))
+                 let aspectYB = (Y.dot(PB) / Z.dot(PB))
+                 let aspectXA = (X.dot(PA) / Z.dot(PA))
+                 let aspectXB = (X.dot(PB) / Z.dot(PB))
+                 let aspectY = (Math.abs(Y.dot(PA)) / Math.abs(Z.dot(PA)) + Math.abs(Y.dot(PB)) / Math.abs(Z.dot(PB)));
+                 let aspectX = (Math.abs(X.dot(PA)) / Math.abs(Z.dot(PA)) + Math.abs(X.dot(PB)) / Math.abs(Z.dot(PB)));
+                 aspect = aspectX / aspectY;
+
+                 console.dir({P, X0Y1, X0Y0, X1Y0, X1Y1});
+                 console.dir({PX0Y1, PX0Y0, PX1Y0, PX1Y1, PMid});
+                 console.dir({P, PA, PB, X, Y, Z, aspect, aspectX, aspectY, aspectXA, aspectXB, aspectYA, aspectYB, fov, points})
+                 console.dir({XdotPA, XdotPB, YdotPA, YdotPB, ZdotPA, ZdotPB});
+
+                 camera.position.copy(P);
+                 camera.up.copy(Y);
+                 camera.lookAt(PMid.clone().add(P));
+                 //camera.quaternion.copy(QZ);
+                 camera.updateMatrixWorld();
+                 
+                 camera.aspect = aspect;
+                 camera.fov = fov;
+                 camera.updateProjectionMatrix();
+               }
+
+               /*
                const _configureCamera = (camera, points) => {
                  const [P, A, B] = points;
                  const PA = A.clone().sub(P).normalize();
                  const PB = B.clone().sub(P).normalize();
-                 const PMid = PA.clone().add(PB).divideScalar(2).normalize();
-                 const Q = new THREE.Quaternion();
-                 Q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), PMid);
+                 const PMid = PA.clone().normalize().add(PB.clone().normalize()).divideScalar(2);
+                 const Q = new THREE.Quaternion(); Q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), PMid.clone().normalize());
 
                  const X = new THREE.Vector3(1, 0,  0); X.applyQuaternion(Q); // camera right
                  const Y = new THREE.Vector3(0, 1,  0); Y.applyQuaternion(Q); // camera up
                  const Z = new THREE.Vector3(0, 0, -1); Z.applyQuaternion(Q); // camera forward
 
-                 const aspect = video.width / video.height;
-                 const fov = Math.acos(Y.dot(PA) / Z.dot(PA)) * 90 / Math.PI;
+                 const XdotPA = X.dot(PA);
+                 const XdotPB = X.dot(PB);
+                 const YdotPA = Y.dot(PA);
+                 const YdotPB = Y.dot(PB);
+                 const ZdotPA = Z.dot(PA);
+                 const ZdotPB = Z.dot(PB);
 
-                 console.dir({P, A, B, PA, PB, X, Y, Z, aspect, fov, points})
+                 let aspect = video.width / video.height;
+                 let fov = Math.acos(
+                   Y.dot(PB) / Z.dot(PB)
+                 ) * 90 / Math.PI;
+                 let aspectYA = (Y.dot(PA) / Z.dot(PA))
+                 let aspectYB = (Y.dot(PB) / Z.dot(PB))
+                 let aspectXA = (X.dot(PA) / Z.dot(PA))
+                 let aspectXB = (X.dot(PB) / Z.dot(PB))
+                 let aspectY = (Math.abs(Y.dot(PA) / Z.dot(PA)) + Math.abs(Y.dot(PB) / Z.dot(PB)));
+                 let aspectX = (Math.abs(X.dot(PA) / Z.dot(PA)) + Math.abs(X.dot(PB) / Z.dot(PB)));
+                 aspect = aspectX / aspectY;
+
+                 console.dir({P, A, B, PA, PB, X, Y, Z, aspect, aspectX, aspectY, aspectXA, aspectXB, aspectYA, aspectYB, fov, points})
+                 console.dir({XdotPA, XdotPB, YdotPA, YdotPB, ZdotPA, ZdotPB});
 
                  camera.position.copy(P);
                  camera.quaternion.copy(Q);
@@ -301,8 +581,11 @@
                  camera.fov = fov;
                  camera.updateProjectionMatrix();
                }
+               */
 
-               if (points.length >= 3) {
+               if (points.length >= 5) {
+                 localStorage.setItem(`exokit.configure.points.${facingMode}`, JSON.stringify(points));
+
                  _configureCamera(camera, points);
                  projectionMatrix.copy(camera.projectionMatrix);
                  matrixWorld.copy(camera.matrixWorldInverse);
@@ -310,10 +593,15 @@
                  console.log(`viewMatrix: ${JSON.stringify(matrixWorld.toArray())}`);
                  console.log(`projectionMatrix: ${JSON.stringify(projectionMatrix.toArray())}`);
 
+                 points.init = false;
                  points.length = 0;
                }
              }
-             lastPresseds[i] = pressed;
+             if (gamepad) {
+               for (let j = 0; j < gamepad.buttons.length; j++) {
+                 lastPressed[j] = gamepad.buttons[j].pressed;
+               }
+             }
            }
          }
 
