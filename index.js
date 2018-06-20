@@ -16,9 +16,9 @@ const minimist = require('minimist');
 const UPNG = require('upng-js');
 const {version} = require('./package.json');
 const emojis = require('./assets/emojis');
-const nativeBindingsModulePath = path.join(__dirname, 'native-bindings.js');
+const nativeBindingsModulePath = './native-bindings.js';
 const {THREE} = core;
-const nativeBindings = require(nativeBindingsModulePath);
+const nativeBindings = require('./native-bindings.js');
 const {nativeVideo, nativeVr, nativeLm, nativeMl, nativeWindow} = nativeBindings;
 
 const dataPath = path.join(os.homedir() || __dirname, '.exokit');
