@@ -392,6 +392,7 @@ const _makeWindow = (options = {}, parent = null, top = null) => {
 
   const windowStartScript = `(() => {
     ${(!GlobalContext.args.require && !options.noRequire) ? 'global.require = undefined;' : ''}
+    global.alert = (typeof alert !== "undefined") ? alert : ((x) => console.log(x));
 
     const _logStack = err => {
       console.warn(err);
