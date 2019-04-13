@@ -344,14 +344,12 @@
               ],
             }],
             ['OS=="mac" and target_arch=="arm64"', {
-              'defines': [
-                  '__IPHONEOS__=1',
-                  'TARGET_OS_IPHONE=1',
-                  'V8_TARGET_OS_IPHONE=1',
-                  '_DARWIN_USE_64_BIT_INODE=1',
-                  ],
+              'type': 'static_library',
+              'standalone_static_library': '1',
+              'product_prefix': 'lib',
               'xcode_settings': {
-                'type': 'static_library',
+                'SDKROOT': 'iphoneos',
+                'IPHONEOS_DEPLOYMENT_TARGET': '8.0',
                 'ALWAYS_SEARCH_USER_PATHS': 'NO',
                 'GCC_CW_ASM_SYNTAX': 'NO',                # No -fasm-blocks
                 'GCC_DYNAMIC_NO_PIC': 'NO',               # No -mdynamic-no-pic
@@ -363,9 +361,7 @@
                 'USE_HEADERMAP': 'NO',
                 'IPHONEOS_DEPLOYMENT_TARGET': '8.0',
                 'OTHER_CFLAGS': [
-                  '-g', '-O0',
-                  '-fno-strict-aliasing',
-                  '-isysroot', '<!@(xcrun -sdk iphoneos --show-sdk-path)',
+                  '-g',
                 ],
                 'WARNING_CFLAGS': [
                   '-Wall',
@@ -384,7 +380,6 @@
                     'OTHER_LDFLAGS': [
                       '-Wl,-no_pie',
                       '-Wl,-search_paths_first',
-                      '-isysroot', '<!@(xcrun -sdk iphoneos --show-sdk-path)',
                     ],
                   },
                 }],
@@ -396,7 +391,7 @@
                 ['clang==1', {
                   'xcode_settings': {
                     'GCC_VERSION': 'com.apple.compilers.llvm.clang.1_0',
-                    'CLANG_CXX_LANGUAGE_STANDARD': 'c++17',  # -std=c++14
+                    'CLANG_CXX_LANGUAGE_STANDARD': 'c++14',  # -std=c++14
                     'CLANG_CXX_LIBRARY': 'libc++',
                   },
                 }],
@@ -430,7 +425,7 @@
                 '<(module_root_dir)/deps/exokit-bindings/windowsystem/include',
               ],
               'library_dirs': [
-                "<!(node -e \"console.log(require.resolve('native-canvas-deps').slice(0, -9) + '/lib/macos')\")",
+                "<!(node -e \"console.log(require.resolve('native-canvas-deps').slice(0, -9) + '/lib/ios')\")",
               ],
               'libraries': [
                 '-lskia',
@@ -447,10 +442,14 @@
                 }
               ],
               'defines': [
-                '__IPHONEOS__=1',
+                'GLFW_INCLUDE_NONE=1',
                 'OPENVR',
-                'WRAPPING_CEF_SHARED',
+                'TARGET_OS_IPHONE=1',
+                'V8_TARGET_OS_IPHONE=1',
                 'WEBRTC_POSIX',
+                'WRAPPING_CEF_SHARED',
+                '_DARWIN_USE_64_BIT_INODE=1',
+                '__IPHONEOS__=1',
               ],
             }],
             ['OS=="mac" and target_arch!="arm64"', {
