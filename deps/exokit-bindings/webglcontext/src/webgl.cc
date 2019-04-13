@@ -1318,14 +1318,6 @@ inline void reformatImageData(char *dstData, char *srcData, size_t dstPixelSize,
   }
 }
 
-void flipImageData(char *dstData, char *srcData, size_t width, size_t height, size_t pixelSize) {
-  size_t stride = width * pixelSize;
-  size_t size = width * height * pixelSize;
-  for (size_t i = 0; i < height; i++) {
-    memcpy(dstData + (i * stride), srcData + size - stride - (i * stride), stride);
-  }
-}
-
 template <typename T>
 void expandLuminance(char *dstData, char *srcData, size_t width, size_t height) {
   size_t size = width * height;
