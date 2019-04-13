@@ -23,7 +23,9 @@ NAN_METHOD(ctxCallWrap) {
   Local<Object> ctxObj = info.This();
   CanvasRenderingContext2D *ctx = ObjectWrap::Unwrap<CanvasRenderingContext2D>(ctxObj);
   if (ctx->live) {
+#ifndef __IPHONEOS__
     windowsystem::SetCurrentWindowContext(ctx->windowHandle);
+#endif
 
     F(info);
   } else {
@@ -1283,7 +1285,9 @@ NAN_METHOD(CanvasRenderingContext2D::SetWindowHandle) {
   if (info[0]->IsArray()) {
     ctx->windowHandle = (NATIVEwindow *)arrayToPointer(Local<Array>::Cast(info[0]));
     
+#ifndef __IPHONEOS__
     windowsystem::SetCurrentWindowContext(ctx->windowHandle);
+#endif
     
     // You've already created your OpenGL context and bound it.
     // Leaving interface as null makes Skia extract pointers to OpenGL functions for the current
@@ -1379,6 +1383,7 @@ sk_sp<SkImage> CanvasRenderingContext2D::getImage(Local<Value> arg) {
     )) {
       WebGLRenderingContext *gl = ObjectWrap::Unwrap<WebGLRenderingContext>(Local<Object>::Cast(otherContextObj));
 
+#ifndef __IPHONEOS__
       int w, h;
       windowsystem::GetWindowSize(gl->windowHandle, &w, &h);
 
@@ -1398,6 +1403,9 @@ sk_sp<SkImage> CanvasRenderingContext2D::getImage(Local<Value> arg) {
       } else {
         return nullptr;
       }
+#else
+      return nullptr;
+#endif
     } else {
       return nullptr;
     }

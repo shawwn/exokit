@@ -4,6 +4,11 @@
 
 #include <exout>
 
+#ifdef __IPHONEOS__
+#define glewInit(x) GL_FALSE
+#define glewGetErrorString(err) "No glew on iOS"
+#endif
+
 namespace glfw {
 
 GLFWmonitor* _activeMonitor;
@@ -1118,7 +1123,9 @@ NAN_METHOD(ExtensionSupported) {
 bool glfwInitialized = false;
 NATIVEwindow *CreateNativeWindow(unsigned int width, unsigned int height, bool visible, NATIVEwindow *sharedWindow) {
   if (!glfwInitialized) {
+#ifndef __IPHONEOS__
     glewExperimental = GL_TRUE;
+#endif
 
     if (glfwInit() == GLFW_TRUE) {
       atexit([]() {

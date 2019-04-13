@@ -1,5 +1,75 @@
 #include "bindings.h"
 
+void flipImageData(char *dstData, char *srcData, size_t width, size_t height, size_t pixelSize) {
+  size_t stride = width * pixelSize;
+  size_t size = width * height * pixelSize;
+  for (size_t i = 0; i < height; i++) {
+    memcpy(dstData + (i * stride), srcData + size - stride - (i * stride), stride);
+  }
+}
+
+
+#ifdef __IPHONEOS__
+
+Local<Object> makeImage() {
+  Isolate *isolate = Isolate::GetCurrent();
+
+  Nan::EscapableHandleScope scope;
+
+  return scope.Escape(Image::Initialize(isolate));
+}
+
+Local<Object> makeImageData() {
+  Isolate *isolate = Isolate::GetCurrent();
+
+  Nan::EscapableHandleScope scope;
+
+  return scope.Escape(ImageData::Initialize(isolate));
+}
+
+Local<Object> makeImageBitmap() {
+  Isolate *isolate = Isolate::GetCurrent();
+
+  Nan::EscapableHandleScope scope;
+
+  return scope.Escape(ImageBitmap::Initialize(isolate));
+}
+
+Local<Object> makeCanvasRenderingContext2D(Local<Value> imageDataCons, Local<Value> canvasGradientCons, Local<Value> canvasPatternCons) {
+  Isolate *isolate = Isolate::GetCurrent();
+
+  Nan::EscapableHandleScope scope;
+
+  return scope.Escape(CanvasRenderingContext2D::Initialize(isolate, imageDataCons, canvasGradientCons, canvasPatternCons));
+}
+
+Local<Object> makePath2D() {
+  Isolate *isolate = Isolate::GetCurrent();
+
+  Nan::EscapableHandleScope scope;
+
+  return scope.Escape(Path2D::Initialize(isolate));
+}
+
+Local<Object> makeCanvasGradient() {
+  Isolate *isolate = Isolate::GetCurrent();
+
+  Nan::EscapableHandleScope scope;
+
+  return scope.Escape(CanvasGradient::Initialize(isolate));
+}
+
+Local<Object> makeCanvasPattern() {
+  Isolate *isolate = Isolate::GetCurrent();
+
+  Nan::EscapableHandleScope scope;
+
+  return scope.Escape(CanvasPattern::Initialize(isolate));
+}
+
+
+#else
+
 std::pair<Local<Object>, Local<FunctionTemplate>> makeGl() {
   return WebGLRenderingContext::Initialize(Isolate::GetCurrent());
 }
@@ -145,3 +215,4 @@ Local<Object> makeRtc() {
 
   return scope.Escape(exports);
 }
+#endif
