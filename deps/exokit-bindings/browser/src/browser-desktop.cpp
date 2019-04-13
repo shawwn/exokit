@@ -159,7 +159,9 @@ EmbeddedBrowser createEmbedded(
           glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
           glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 // #ifndef LUMIN
+#ifndef __IPHONEOS__
           glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, NULL);
+#endif
 // #else
           // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, NULL);
 // #endif
@@ -174,7 +176,9 @@ EmbeddedBrowser createEmbedded(
           glPixelStorei(GL_UNPACK_SKIP_PIXELS, rect.x);
           glPixelStorei(GL_UNPACK_SKIP_ROWS, rect.y);
 // #ifndef LUMIN
+#ifndef __IPHONEOS__
           glTexSubImage2D(GL_TEXTURE_2D, 0, rect.x, rect.y, rect.width, rect.height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, buffer);
+#endif
 // #else
           // glTexSubImage2D(GL_TEXTURE_2D, 0, rect.x, rect.y, rect.width, rect.height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, buffer);
 // #endif

@@ -8,22 +8,8 @@
             ['OS=="win"', {
               'sources': [
                 'exokit.cpp',
-                'deps/exokit-bindings/bindings/src/*.cc',
-                'deps/exokit-bindings/util/src/*.cc',
-                'deps/exokit-bindings/browser/src/*.cpp',
-                'deps/exokit-bindings/canvas/src/*.cpp',
-                'deps/exokit-bindings/nanosvg/src/*.cpp',
-                'deps/exokit-bindings/canvascontext/src/*.cc',
-                'deps/exokit-bindings/webglcontext/src/*.cc',
-                'deps/exokit-bindings/platform/windows/src/*.cpp',
-                'deps/exokit-bindings/webaudiocontext/src/*.cpp',
-                'deps/exokit-bindings/videocontext/src/*.cpp',
-                'deps/exokit-bindings/videocontext/src/win/*.cpp',
-                'deps/exokit-bindings/windowsystem/src/*.cc',
-                'deps/exokit-bindings/glfw/src/*.cc',
-                'deps/exokit-bindings/webrtc/src/*.cc',
-                'deps/openvr/src/*.cpp',
-                'deps/exokit-bindings/leapmotion/src/*.cc',
+                "<!@(find deps -name '*.cpp')",
+                "<!@(find deps -name '*.cc')",
               ],
               'include_dirs': [
                 "<!(node -e \"console.log(require.resolve('nan').slice(0, -16))\")",
@@ -357,7 +343,117 @@
                 }],
               ],
             }],
-            ['OS=="mac"', {
+            ['OS=="mac" and target_arch=="arm64"', {
+              'defines': [
+                  '__IPHONEOS__=1',
+                  'TARGET_OS_IPHONE=1',
+                  'V8_TARGET_OS_IPHONE=1',
+                  '_DARWIN_USE_64_BIT_INODE=1',
+                  ],
+              'xcode_settings': {
+                'type': 'static_library',
+                'ALWAYS_SEARCH_USER_PATHS': 'NO',
+                'GCC_CW_ASM_SYNTAX': 'NO',                # No -fasm-blocks
+                'GCC_DYNAMIC_NO_PIC': 'NO',               # No -mdynamic-no-pic
+                                                          # (Equivalent to -fPIC)
+                'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',        # -fno-exceptions
+                'GCC_ENABLE_CPP_RTTI': 'NO',              # -fno-rtti
+                'GCC_ENABLE_PASCAL_STRINGS': 'NO',        # No -mpascal-strings
+                'PREBINDING': 'NO',                       # No -Wl,-prebind
+                'USE_HEADERMAP': 'NO',
+                'IPHONEOS_DEPLOYMENT_TARGET': '8.0',
+                'OTHER_CFLAGS': [
+                  '-g', '-O0',
+                  '-fno-strict-aliasing',
+                  '-isysroot', '<!@(xcrun -sdk iphoneos --show-sdk-path)',
+                ],
+                'WARNING_CFLAGS': [
+                  '-Wall',
+                  '-Wendif-labels',
+                  '-W',
+                  '-Wno-unused-parameter',
+                ],
+              },
+              'target_conditions': [
+                ['OS=="openbsd"', {
+                  'cflags': [ '-I/usr/local/include' ],
+                  'ldflags': [ '-Wl,-z,wxneeded' ],
+                }],
+                ['_type!="static_library"', {
+                  'xcode_settings': {
+                    'OTHER_LDFLAGS': [
+                      '-Wl,-no_pie',
+                      '-Wl,-search_paths_first',
+                      '-isysroot', '<!@(xcrun -sdk iphoneos --show-sdk-path)',
+                    ],
+                  },
+                }],
+              ],
+              'conditions': [
+                ['target_arch=="arm64"', {
+                  'xcode_settings': {'ARCHS': ['arm64']},
+                }],
+                ['clang==1', {
+                  'xcode_settings': {
+                    'GCC_VERSION': 'com.apple.compilers.llvm.clang.1_0',
+                    'CLANG_CXX_LANGUAGE_STANDARD': 'c++17',  # -std=c++14
+                    'CLANG_CXX_LIBRARY': 'libc++',
+                  },
+                }],
+              ],
+              'sources': [
+                '<!@(ls -1 deps/exokit-bindings/bindings/src/*.cc)',
+                '<!@(ls -1 deps/exokit-bindings/util/src/*.cc)',
+                '<!@(ls -1 deps/exokit-bindings/canvas/src/*.cpp)',
+                '<!@(ls -1 deps/exokit-bindings/nanosvg/src/*.cpp)',
+                '<!@(ls -1 deps/exokit-bindings/canvascontext/src/*.cc)',
+                '<!@(ls -1 deps/exokit-bindings/windowsystem/src/*.cc)',
+              ],
+              'include_dirs': [
+                "<!(node -e \"console.log(require.resolve('nan').slice(0, -16))\")",
+                "<!(node -e \"console.log(require.resolve('native-graphics-deps').slice(0, -9) + '/include')\")",
+                "<!(node -e \"console.log(require.resolve('native-canvas-deps').slice(0, -9) + '/include/core')\")",
+                "<!(node -e \"console.log(require.resolve('native-canvas-deps').slice(0, -9) + '/include/config')\")",
+                "<!(node -e \"console.log(require.resolve('native-canvas-deps').slice(0, -9) + '/include/gpu')\")",
+                "<!(node -e \"console.log(require.resolve('native-canvas-deps').slice(0, -9) + '/include/effects')\")",
+                '<(module_root_dir)/deps/exokit-bindings',
+                '<(module_root_dir)/deps/exokit-bindings/webglcontext/include',
+                '<(module_root_dir)/deps/exokit-bindings/glfw/include',
+                '<(module_root_dir)/deps/exokit-bindings/utf8',
+                '<(module_root_dir)/deps/exokit-bindings/node',
+                '<(module_root_dir)/deps/exokit-bindings/native_app_glue',
+                '<(module_root_dir)/deps/exokit-bindings/util/include',
+                '<(module_root_dir)/deps/exokit-bindings/bindings/include',
+                '<(module_root_dir)/deps/exokit-bindings/canvas/include',
+                '<(module_root_dir)/deps/exokit-bindings/nanosvg/include',
+                '<(module_root_dir)/deps/exokit-bindings/canvascontext/include',
+                '<(module_root_dir)/deps/exokit-bindings/windowsystem/include',
+              ],
+              'library_dirs': [
+                "<!(node -e \"console.log(require.resolve('native-canvas-deps').slice(0, -9) + '/lib/macos')\")",
+              ],
+              'libraries': [
+                '-lskia',
+              ],
+              'link_settings': {
+                'libraries': [
+                ],
+              },
+              'copies': [
+                {
+                  'destination': '<(module_root_dir)/build/Release/',
+                  'files': [
+                  ]
+                }
+              ],
+              'defines': [
+                '__IPHONEOS__=1',
+                'OPENVR',
+                'WRAPPING_CEF_SHARED',
+                'WEBRTC_POSIX',
+              ],
+            }],
+            ['OS=="mac" and target_arch!="arm64"', {
               'sources': [
                 'exokit.cpp',
                 '<!@(ls -1 deps/exokit-bindings/bindings/src/*.cc)',

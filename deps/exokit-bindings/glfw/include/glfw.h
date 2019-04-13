@@ -9,7 +9,9 @@
 #include <nan.h>
 #include <defines.h>
 
+#ifndef __IPHONEOS__
 #include <GL/glew.h>
+#endif
 
 #define GLFW_NO_GLU
 #define GLFW_DLL

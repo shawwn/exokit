@@ -3,6 +3,25 @@
 
 #include <v8.h>
 #include <node.h>
+
+#ifdef __IPHONEOS__
+#include <image-context.h>
+#include <imageData-context.h>
+#include <imageBitmap-context.h>
+#include <canvas-context.h>
+#include <path2d-context.h>
+#include <canvas-gradient.h>
+#include <canvas-pattern.h>
+
+Local<Object> makeImage();
+Local<Object> makeImageData();
+Local<Object> makeImageBitmap();
+Local<Object> makeCanvasRenderingContext2D(Local<Value> imageDataCons, Local<Value> canvasGradientCons, Local<Value> canvasPatternCons);
+Local<Object> makePath2D();
+Local<Object> makeCanvasGradient();
+Local<Object> makeCanvasPattern();
+#else
+
 #include <image-context.h>
 #include <imageData-context.h>
 #include <imageBitmap-context.h>
@@ -35,5 +54,6 @@ Local<Object> makeAudio();
 Local<Object> makeVideo(Local<Value> imageDataCons);
 Local<Object> makeBrowser();
 Local<Object> makeRtc();
+#endif
 
 #endif
