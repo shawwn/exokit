@@ -13,7 +13,7 @@ using namespace v8;
 using namespace node;
 
 #ifdef __APPLE__
-#define MAC_FLUSH() glFlush()
+#define MAC_FLUSH() if (this->tex) glFlush()
 #else
 #define MAC_FLUSH() 
 #endif
@@ -23,7 +23,7 @@ NAN_METHOD(ctxCallWrap) {
   Local<Object> ctxObj = info.This();
   CanvasRenderingContext2D *ctx = ObjectWrap::Unwrap<CanvasRenderingContext2D>(ctxObj);
   if (ctx->live) {
-#ifndef __IPHONEOS__
+#ifndef EXOKIT_LITE
     windowsystem::SetCurrentWindowContext(ctx->windowHandle);
 #endif
 
@@ -114,11 +114,11 @@ Local<Object> CanvasRenderingContext2D::Initialize(Isolate *isolate, Local<Value
 }
 
 unsigned int CanvasRenderingContext2D::GetWidth() {
-  return surface->width();
+  return surface ? surface->width() : 0;
 }
 
 unsigned int CanvasRenderingContext2D::GetHeight() {
-  return surface->height();
+  return surface ? surface->height() : 0;
 }
 
 unsigned int CanvasRenderingContext2D::GetNumChannels() {
@@ -126,33 +126,42 @@ unsigned int CanvasRenderingContext2D::GetNumChannels() {
 }
 
 void CanvasRenderingContext2D::Scale(float x, float y) {
-  surface->getCanvas()->scale(x, y);
+  if (surface != nullptr)
+    surface->getCanvas()->scale(x, y);
 }
 
 void CanvasRenderingContext2D::Rotate(float angle) {
-  surface->getCanvas()->rotate(angle);
+  if (surface != nullptr)
+    surface->getCanvas()->rotate(angle);
 }
 
 void CanvasRenderingContext2D::Translate(float x, float y) {
-  surface->getCanvas()->translate(x, y);
+  if (surface != nullptr)
+    surface->getCanvas()->translate(x, y);
 }
 
 void CanvasRenderingContext2D::Transform(float a, float b, float c, float d, float e, float f) {
-  SkScalar affine[] = {a, b, c, d, e, f};
-  SkMatrix m;
-  m.setAffine(affine);
-  surface->getCanvas()->setMatrix(m);
+  if (surface != nullptr) {
+    SkScalar affine[] = {a, b, c, d, e, f};
+    SkMatrix m;
+    m.setAffine(affine);
+    surface->getCanvas()->setMatrix(m);
+  }
 }
 
 void CanvasRenderingContext2D::SetTransform(float a, float b, float c, float d, float e, float f) {
-  SkScalar affine[] = {a, b, c, d, e, f};
-  SkMatrix m;
-  m.setAffine(affine);
-  surface->getCanvas()->setMatrix(m);
+  if (surface != nullptr) {
+    SkScalar affine[] = {a, b, c, d, e, f};
+    SkMatrix m;
+    m.setAffine(affine);
+    surface->getCanvas()->setMatrix(m);
+  }
 }
 
 void CanvasRenderingContext2D::ResetTransform() {
-  surface->getCanvas()->resetMatrix();
+  if (surface != nullptr) {
+    surface->getCanvas()->resetMatrix();
+  }
 }
 
 float CanvasRenderingContext2D::MeasureText(const std::string &text) {
@@ -303,19 +312,23 @@ void CanvasRenderingContext2D::StrokeText(const std::string &text, float x, floa
 }
 
 void CanvasRenderingContext2D::Resize(unsigned int w, unsigned int h) {
-  glBindTexture(GL_TEXTURE_2D, tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-  
-  grContext->resetContext();
-  
-  GrGLTextureInfo glTexInfo;
-  glTexInfo.fID = tex;
-  glTexInfo.fTarget = GL_TEXTURE_2D;
-  glTexInfo.fFormat = GL_RGBA8;
-  
-  GrBackendTexture backendTex(w, h, GrMipMapped::kNo, glTexInfo);
-  
-  surface = SkSurface::MakeFromBackendTexture(grContext.get(), backendTex, kBottomLeft_GrSurfaceOrigin, 0, SkColorType::kRGBA_8888_SkColorType, nullptr, nullptr);
+  if (!tex) {
+    surface = SkSurface::MakeRasterN32Premul(w, h);
+  } else {
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    
+    grContext->resetContext();
+    
+    GrGLTextureInfo glTexInfo;
+    glTexInfo.fID = tex;
+    glTexInfo.fTarget = GL_TEXTURE_2D;
+    glTexInfo.fFormat = GL_RGBA8;
+    
+    GrBackendTexture backendTex(w, h, GrMipMapped::kNo, glTexInfo);
+    
+    surface = SkSurface::MakeFromBackendTexture(grContext.get(), backendTex, kBottomLeft_GrSurfaceOrigin, 0, SkColorType::kRGBA_8888_SkColorType, nullptr, nullptr);
+  }
   if (!surface) {
     exerr << "Failed to resize CanvasRenderingContext2D surface" << std::endl;
     abort();
@@ -446,7 +459,9 @@ NAN_SETTER(CanvasRenderingContext2D::StrokeStyleSetter) {
 }
 
 NAN_GETTER(CanvasRenderingContext2D::FillStyleGetter) {
-  // nothing
+  CanvasRenderingContext2D *context = ObjectWrap::Unwrap<CanvasRenderingContext2D>(info.This());
+
+  info.GetReturnValue().Set(Nan::New(context->jsFillStyle));
 }
 
 NAN_SETTER(CanvasRenderingContext2D::FillStyleSetter) {
@@ -461,16 +476,19 @@ NAN_SETTER(CanvasRenderingContext2D::FillStyleSetter) {
     canvas::web_color webColor = canvas::web_color::from_string(fillStyle.c_str());
     context->fillPaint.setColor(((uint32_t)webColor.a << (8 * 3)) | ((uint32_t)webColor.r << (8 * 2)) | ((uint32_t)webColor.g << (8 * 1)) | ((uint32_t)webColor.b << (8 * 0)));
     context->fillPaint.setShader(nullptr);
+    context->jsFillStyle.Reset(value);
   } else if (value->IsObject() && JS_OBJ(JS_OBJ(value)->Get(JS_STR("constructor")))->Get(JS_STR("name"))->StrictEquals(JS_STR("CanvasGradient"))) {
     CanvasRenderingContext2D *context = ObjectWrap::Unwrap<CanvasRenderingContext2D>(info.This());
 
     CanvasGradient *canvasGradient = ObjectWrap::Unwrap<CanvasGradient>(Local<Object>::Cast(value));
     context->fillPaint.setShader(canvasGradient->getShader());
+    context->jsFillStyle.Reset(value);
   } else if (value->IsObject() && JS_OBJ(JS_OBJ(value)->Get(JS_STR("constructor")))->Get(JS_STR("name"))->StrictEquals(JS_STR("CanvasPattern"))) {
     CanvasRenderingContext2D *context = ObjectWrap::Unwrap<CanvasRenderingContext2D>(info.This());
 
     CanvasPattern *canvasPattern = ObjectWrap::Unwrap<CanvasPattern>(Local<Object>::Cast(value));
     context->fillPaint.setShader(canvasPattern->getShader());
+    context->jsFillStyle.Reset(value);
   } else {
      Nan::ThrowError("fillStyle: invalid arguments");
   }
@@ -1285,7 +1303,7 @@ NAN_METHOD(CanvasRenderingContext2D::SetWindowHandle) {
   if (info[0]->IsArray()) {
     ctx->windowHandle = (NATIVEwindow *)arrayToPointer(Local<Array>::Cast(info[0]));
     
-#ifndef __IPHONEOS__
+#ifndef EXOKIT_LITE
     windowsystem::SetCurrentWindowContext(ctx->windowHandle);
 #endif
     
@@ -1383,7 +1401,7 @@ sk_sp<SkImage> CanvasRenderingContext2D::getImage(Local<Value> arg) {
     )) {
       WebGLRenderingContext *gl = ObjectWrap::Unwrap<WebGLRenderingContext>(Local<Object>::Cast(otherContextObj));
 
-#ifndef __IPHONEOS__
+#ifndef EXOKIT_LITE
       int w, h;
       windowsystem::GetWindowSize(gl->windowHandle, &w, &h);
 

@@ -2594,7 +2594,9 @@ class HTMLAudioElement extends HTMLMediaElement {
     super('AUDIO', attrs, value);
 
     this.readyState = HTMLMediaElement.HAVE_NOTHING;
-    this.audio = new bindings.nativeAudio.Audio();
+    if (bindings.nativeAudio) {
+      this.audio = new bindings.nativeAudio.Audio();
+    }
 
     this.on('attribute', (name, value) => {
       if (name === 'src' && value) {
@@ -2631,7 +2633,7 @@ class HTMLAudioElement extends HTMLMediaElement {
               cb();
             })
             .catch(err => {
-              console.warn('failed to load audio:', src);
+              console.warn('failed to load audio:', src, err);
 
               const e = new ErrorEvent('error', {target: this});
               e.message = err.message;
@@ -2720,7 +2722,7 @@ class HTMLVideoElement extends HTMLMediaElement {
 
         if (urls.has(value)) {
           const blob = urls.get(value);
-          if (blob instanceof bindings.nativeVideo.VideoDevice) {
+          if (bindings.nativeVideo && blob instanceof bindings.nativeVideo.VideoDevice) {
             this.video = blob;
           }
         }

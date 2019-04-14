@@ -9,7 +9,7 @@ void flipImageData(char *dstData, char *srcData, size_t width, size_t height, si
 }
 
 
-#ifdef __IPHONEOS__
+#ifdef EXOKIT_LITE
 
 Local<Object> makeImage() {
   Isolate *isolate = Isolate::GetCurrent();

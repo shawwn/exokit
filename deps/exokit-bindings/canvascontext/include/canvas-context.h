@@ -173,6 +173,8 @@ public:
   std::string textAlign;
   TextBaseline textBaseline;
   Direction direction;
+  Nan::Persistent<Value> jsFillStyle;
+  Nan::Persistent<Value> jsStrokeStyle;
 
   /* friend class Image;
   friend class ImageData;

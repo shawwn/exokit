@@ -4,7 +4,7 @@
 #include <v8.h>
 #include <node.h>
 
-#ifdef __IPHONEOS__
+#ifdef EXOKIT_LITE
 #include <image-context.h>
 #include <imageData-context.h>
 #include <imageBitmap-context.h>

@@ -30,7 +30,9 @@ const nativeBindingsModulePath = path.join(__dirname, 'native-bindings.js');
 const nativeBindings = require(nativeBindingsModulePath);
 
 const eventLoopNative = require('event-loop-native');
-nativeBindings.nativeWindow.setEventLoop(eventLoopNative);
+if (nativeBindings.nativeWindow) {
+  nativeBindings.nativeWindow.setEventLoop(eventLoopNative);
+}
 
 const GlobalContext = require('./GlobalContext');
 GlobalContext.commands = [];
@@ -296,9 +298,10 @@ nativeBindings.nativeCanvasRenderingContext2D.onconstruct = (ctx, canvas) => {
     if (!window[symbols.optionsSymbol].args.headless) {
       try {
         const firstWindowHandle = contexts.length > 0 ? contexts[0].getWindowHandle() : null;
-        return nativeWindow.create2d(canvasWidth, canvasHeight, firstWindowHandle);
+        return nativeWindow ? nativeWindow.create2d(canvasWidth, canvasHeight, firstWindowHandle) : null;
       } catch (err) {
         console.warn(err.message);
+        console.warn(err.stack);
         return null;
       }
     } else {
@@ -321,7 +324,17 @@ nativeBindings.nativeCanvasRenderingContext2D.onconstruct = (ctx, canvas) => {
       contexts.splice(contexts.indexOf(ctx), 1);
     })(ctx.destroy);
   } else {
-    ctx.destroy();
+    ctx.resize(300, 300);
+    ctx.destroy = (destroy => function() {
+      destroy.call(this);
+      
+      if (nativeWindow) {
+        nativeWindow.destroy(windowHandle);
+      }
+      canvas._context = null;
+      
+      contexts.splice(contexts.indexOf(ctx), 1);
+    })(ctx.destroy);
   }
 
   contexts.push(ctx);
@@ -840,6 +853,7 @@ const fakePresentState = {
 };
 GlobalContext.fakePresentState = fakePresentState;
 
+if (nativeBindings.nativeWindow) {
 nativeBindings.nativeWindow.setEventHandler((type, data) => {
   const {windowHandle} = data;
   const context = contexts.find(context => _windowHandleEquals(context.getWindowHandle(), windowHandle));
@@ -983,6 +997,7 @@ nativeBindings.nativeWindow.setEventHandler((type, data) => {
     console.warn('got native window event with no matching context', {type, data});
   }
 });
+}
 
 let innerWidth = 1280; // XXX do not track this globally
 let innerHeight = 1024;
@@ -1504,7 +1519,9 @@ const _startRenderLoop = () => {
     }
 
     // poll operating system events
-    nativeBindings.nativeWindow.pollEvents();
+    if (nativeBindings.nativeWindow) {
+      nativeBindings.nativeWindow.pollEvents();
+    }
     if (args.performance) {
       const now = Date.now();
       const diff = now - timestamps.last;
@@ -1514,8 +1531,12 @@ const _startRenderLoop = () => {
     }
 
     // update media frames
-    nativeBindings.nativeVideo.Video.updateAll();
-    nativeBindings.nativeBrowser.Browser.updateAll();
+    if (nativeBindings.nativeVideo) {
+      nativeBindings.nativeVideo.Video.updateAll();
+    }
+    if (nativeBindings.nativeBrowser) {
+      nativeBindings.nativeBrowser.Browser.updateAll();
+    }
     // update magic leap state
     if (mlPresentState.mlGlContext) {
       nativeBindings.nativeMl.Update(mlPresentState.mlContext, mlPresentState.mlGlContext);

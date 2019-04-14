@@ -4,7 +4,12 @@ const exokitNode = (() => {
   const oldCwd = process.cwd();
   const nodeModulesDir = path.resolve(path.dirname(require.resolve('native-graphics-deps')), '..');
   process.chdir(nodeModulesDir);
-  const exokitNode = require(path.join(__dirname, '..', 'build', 'Release', 'exokit.node'));
+  let exokitNode;
+  try {
+    exokitNode = require(path.join(__dirname, '..', 'build', 'Debug', 'exokit.node'));
+  } catch (e) {
+    exokitNode = require(path.join(__dirname, '..', 'build', 'Release', 'exokit.node'));
+  }
   process.chdir(oldCwd);
   return exokitNode;
 })();
@@ -99,6 +104,7 @@ GlobalContext.CanvasRenderingContext2D = bindings.nativeCanvasRenderingContext2D
 GlobalContext.WebGLRenderingContext = bindings.nativeGl;
 GlobalContext.WebGL2RenderingContext = bindings.nativeGl2;
 
+if (bindings.nativeAudio)
 bindings.nativeAudio.AudioContext = (OldAudioContext => class AudioContext extends OldAudioContext {
   decodeAudioData(arrayBuffer, successCallback, errorCallback) {
     return new Promise((resolve, reject) => {
@@ -131,6 +137,7 @@ bindings.nativeAudio.AudioContext = (OldAudioContext => class AudioContext exten
   }
 })(bindings.nativeAudio.AudioContext);
 
+if (bindings.nativeAudio)
 bindings.nativeAudio.PannerNode.setPath(path.join(require.resolve('native-audio-deps').slice(0, -'index.js'.length), 'assets', 'hrtf'));
 
 if (bindings.nativeVr) {

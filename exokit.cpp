@@ -142,11 +142,13 @@ void Java_com_mafintosh_nodeonandroid_NodeService_onDrawFrame
 }
 
 void InitExports(Local<Object> exports) {
+#ifndef EXOKIT_LITE
   std::pair<Local<Value>, Local<FunctionTemplate>> glResult = makeGl();
   exports->Set(v8::String::NewFromUtf8(Isolate::GetCurrent(), "nativeGl"), glResult.first);
 
   std::pair<Local<Value>, Local<FunctionTemplate>> gl2Result = makeGl2(glResult.second);
   exports->Set(v8::String::NewFromUtf8(Isolate::GetCurrent(), "nativeGl2"), gl2Result.first);
+#endif
 
   Local<Value> image = makeImage();
   exports->Set(v8::String::NewFromUtf8(Isolate::GetCurrent(), "nativeImage"), image);
@@ -169,6 +171,7 @@ void InitExports(Local<Object> exports) {
   Local<Value> canvas = makeCanvasRenderingContext2D(imageData, canvasGradient, canvasPattern);
   exports->Set(v8::String::NewFromUtf8(Isolate::GetCurrent(), "nativeCanvasRenderingContext2D"), canvas);
 
+#ifndef EXOKIT_LITE
   Local<Value> audio = makeAudio();
   exports->Set(v8::String::NewFromUtf8(Isolate::GetCurrent(), "nativeAudio"), audio);
 
@@ -200,6 +203,7 @@ void InitExports(Local<Object> exports) {
 #if defined(LUMIN)
   Local<Value> ml = makeMl();
   exports->Set(v8::String::NewFromUtf8(Isolate::GetCurrent(), "nativeMl"), ml);
+#endif
 #endif
 
 #ifndef LUMIN
