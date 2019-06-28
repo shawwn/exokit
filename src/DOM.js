@@ -1725,29 +1725,43 @@ class HTMLScriptElement extends HTMLLoadableElement {
 
     this.readyState = null;
 
-    const _loadRun = async => {
+    const _async = () => {
+      const async = this.getAttribute('async');
+      return async !== null ? async !== 'false' : false;
+    }
+
+    const _runner = () => {
+      return this.getAttribute('src') ? this.loadRunNow : this.runNow
+    }
+
+    const _ready = () => {
+      return this.isRunnable() && this.isConnected && !this.readyState;
+    }
+
+    const _loadRun = this._loadRun = (opts = {}) => {
+      const ready = (opts.ready != null) ? opts.ready : _ready();
+      if (!ready) {
+        return;
+      }
+      const run = (opts.run != null) ? opts.run : _runner();
+      const async = (opts.async != null) ? opts.async : _async();
       if (!async) {
-        this.ownerDocument[symbols.addRunSymbol](this.loadRunNow.bind(this));
+        this.ownerDocument[symbols.addRunSymbol](run.bind(this));
       } else {
-        this.loadRunNow();
+        run();
       }
     };
     this.on('attribute', (name, value) => {
-      if (name === 'src' && value && this.isRunnable() && this.isConnected && !this.readyState) {
-        const async = this.getAttribute('async');
-        _loadRun(async !== null ? async !== 'false' : false);
+      console.log('setAttribute', {name, value});
+      if (name === 'src' && value) {
+        _loadRun();
       }
     });
     this.on('attached', () => {
-      if (this.isRunnable() && this.isConnected && !this.readyState) {
-        const async = this.getAttribute('async');
-        _loadRun(async !== null ? async !== 'false' : true);
-      }
+      _loadRun();
     });
     this.on('innerHTML', innerHTML => {
-      if (this.isRunnable() && this.isConnected && !this.readyState) {
-        this.runNow();
-      }
+      _loadRun({run: this.runNow});
     });
   }
 
@@ -1802,13 +1816,15 @@ class HTMLScriptElement extends HTMLLoadableElement {
 
   isRunnable() {
     const {type} = this;
-    return !type || /^(?:(?:text|application)\/javascript|application\/ecmascript)$/.test(type);
+    return !type || type === 'module' || /^(?:(?:text|application)\/javascript|application\/ecmascript)$/.test(type);
   }
 
-  loadRunNow() {
+  isModule() {
+    return this.getAttribute('type') === 'module';
+  }
+
+  loadRunNow({url = this.src, code}) {
     this.readyState = 'loading';
-    
-    const url = _mapUrl(this.src, this.ownerDocument.defaultView);
 
     const _fetch = async (url) => {
       const res = await this.ownerDocument.defaultView.fetch(url)
@@ -1818,14 +1834,37 @@ class HTMLScriptElement extends HTMLLoadableElement {
         throw new Error('script src got invalid status code: ' + res.status + ' : ' + url);
       }
     }
-    
     return this.ownerDocument.resources.addResource(async (onprogress, cb) => {
       try {
-        let code = url ? await _fetch(url) : this.innerHTML;
+        const window = this.ownerDocument.defaultView;
+        url = _mapUrl(url, window);
+        if (!code) {
+          code = url ? await _fetch(url) : this.innerHTML;
+        }
+        url = url || window.location.href;
+        url = new URL(url, window.location.href).href;
+
         if (code) {
-          vm.runInThisContext(code, {
-            filename: url,
-          });
+          if (this.isModule()) {
+            if (!vm.SourceTextModule) {
+              throw new Error('ECMAScript modules are not supported: ' + url);
+            }
+            const script = new vm.SourceTextModule(code, {url});
+            await script.link(async (path, parent) => {
+              const url = new URL(path, parent.url).href;
+              const code = await _fetch(url);
+              return new vm.SourceTextModule(code, {
+                context: parent.context,
+                url
+              });
+            });
+            script.instantiate();
+            await script.evaluate();
+          } else {
+            vm.runInThisContext(code, {
+              filename: url,
+            });
+          }
         }
         this.readyState = 'complete';
 
@@ -1846,48 +1885,11 @@ class HTMLScriptElement extends HTMLLoadableElement {
   }
 
   runNow() {
-    this.readyState = 'loading';
-    
-    const innerHTML = this.childNodes[0].value;
-    const window = this.ownerDocument.defaultView;
-    
-    return this.ownerDocument.resources.addResource((onprogress, cb) => {
-      (async () => {
-        vm.runInThisContext(innerHTML, {
-          filename: window.location.href,
-          lineOffset : this.location && this.location.line !== null ? this.location.line - 1 : 0,
-          columnOffset: this.location && this.location.col !== null ? this.location.col - 1 : 0,
-        });
-      })()
-        .then(() => {
-          this.readyState = 'complete';
-          
-          this.dispatchEvent(new Event('load', {target: this}));
-
-          cb();
-        })
-        .catch(err => {
-          this.readyState = 'complete';
-
-          const e = new ErrorEvent('error', {target: this});
-          e.message = err.message;
-          e.stack = err.stack;
-          this.dispatchEvent(e);
-          
-          cb(err);
-        });
-    });
+    return this.loadRunNow({code: this.innerHTML});
   }
 
   [symbols.runSymbol]() {
-    if (this.isRunnable() && !this.readyState) {
-      if (this.attributes.src) {
-        return this.loadRunNow();
-      } else if (this.childNodes.length > 0) {
-        return this.runNow();
-      }
-    }
-    return Promise.resolve();
+    return this._loadRun();
   }
 }
 module.exports.HTMLScriptElement = HTMLScriptElement;
